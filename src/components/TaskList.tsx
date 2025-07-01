@@ -281,7 +281,8 @@ const TaskList: React.FC<TaskListProps> = ({
   if (tasks.length === 0) {
     return (
       <div className="text-center py-8 sm:py-12">
-        <div className="text-4xl sm:text-6xl mb-3 sm:mb-4">📅</div>
+        <div className="text-4xl sm:text-6xl mb-3 sm:mb-4">📅
+</div>
         <h3 className="text-base sm:text-lg font-semibold text-muted-foreground mb-1 sm:mb-2">
           No tasks scheduled
         </h3>

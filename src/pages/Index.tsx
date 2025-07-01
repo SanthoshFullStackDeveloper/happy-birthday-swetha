@@ -2,14 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Quote, CalendarDays, Heart } from 'lucide-react';
+import { Plus, Quote, CalendarDays, Heart, Settings } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import TaskList from '@/components/TaskList';
 import TaskForm from '@/components/TaskForm';
 import TaskAnimation from '@/components/TaskAnimation';
 import WelcomeAnimation from '@/components/WelcomeAnimation';
-import { logOut, auth, setupTasksListener, addTaskToFirestore, updateTaskInFirestore, deleteTaskFromFirestore } from '@/firebase';
+import { logOut, auth, setupTasksListener, addTaskToFirestore, updateTaskInFirestore, deleteTaskFromFirestore, updateUserProfileData, getUserProfileData } from '@/firebase';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AccountSettings } from '@/components/AccountSettings';
+import { updateProfile } from 'firebase/auth';
 
 export interface Task {
   id: string;
@@ -36,11 +39,26 @@ const Index = () => {
   const [animationTrigger, setAnimationTrigger] = useState<{ show: boolean; type: 'complete' | 'create' | 'edit' }>({ show: false, type: 'complete' });
   const [showWelcome, setShowWelcome] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
+  const [birthDate, setBirthDate] = useState<Date | null>(null);
 
   useEffect(() => {
     const user = auth.currentUser;
     if (user) {
       setUserName(user.displayName);
+
+      const loadProfileData = async () => {
+        try {
+          const profileData = await getUserProfileData(user.uid);
+          if (profileData?.birthDate) {
+            setBirthDate(profileData.birthDate.toDate());
+          }
+        } catch (error) {
+          console.error('Error loading profile data:', error);
+        }
+      };
+
+      loadProfileData();
 
       const unsubscribe = setupTasksListener(user.uid, (firebaseTasks) => {
         setTasks(firebaseTasks);
@@ -49,6 +67,31 @@ const Index = () => {
       return () => unsubscribe();
     }
   }, []);
+
+  const handleProfileUpdate = async (newName: string, newBirthDate?: Date | null) => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      await updateProfile(user, { displayName: newName });
+      await updateUserProfileData(user.uid, { birthDate: newBirthDate || null });
+      
+      setUserName(newName);
+      setBirthDate(newBirthDate || null);
+      
+      toast({
+        title: 'Profile updated successfully!'
+      });
+      setShowAccountSettings(false);
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: 'Error updating profile',
+        description: error.message || 'There was an error updating your profile',
+        variant: 'destructive'
+      });
+    }
+  };
 
   const selectedDateString = format(selectedDate, 'yyyy-MM-dd');
 
@@ -116,15 +159,6 @@ const Index = () => {
 
     try {
       const taskId = await addTaskToFirestore(cleanTaskData);
-      const createdTask = {
-        ...cleanTaskData,
-        id: taskId,
-        description: cleanTaskData.description || undefined,
-        time: cleanTaskData.time || undefined,
-        startDate: cleanTaskData.startDate || undefined,
-        endDate: cleanTaskData.endDate || undefined
-      };
-
       setShowTaskForm(false);
       triggerAnimation('create');
 
@@ -273,11 +307,35 @@ const Index = () => {
     return <WelcomeAnimation onComplete={() => setShowWelcome(false)} />;
   }
 
-  const isSistersBirthday = selectedDate.getDate() === 18 && selectedDate.getMonth() === 6; // July is 6 (0-based)
+  const isUsersBirthday = birthDate && 
+    selectedDate.getDate() === birthDate.getDate() && 
+    selectedDate.getMonth() === birthDate.getMonth();
+
+  const isSistersBirthday = selectedDate.getDate() === 18 && selectedDate.getMonth() === 6;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
-         <Button
+      <div className="flex justify-end gap-2 p-4">
+        <Dialog open={showAccountSettings} onOpenChange={setShowAccountSettings}>
+          <DialogTrigger asChild>
+            <Button variant="ghost" className="text-purple-600 hover:bg-purple-100/50">
+              <Settings className="h-4 w-4 mr-2" />
+              Account Settings
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Account Settings</DialogTitle>
+            </DialogHeader>
+            <AccountSettings
+              userName={userName || ''}
+              birthDate={birthDate}
+              onClose={() => setShowAccountSettings(false)}
+              onUpdate={handleProfileUpdate}
+            />
+          </DialogContent>
+        </Dialog>
+        <Button
           onClick={async () => {
             await logOut();
             toast({
@@ -290,10 +348,10 @@ const Index = () => {
         >
           Logout
         </Button>
+      </div>
+
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-     
         <div className="text-center mb-8">
-          
           <div className="mb-4">
             <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
               {userName ? `${userName}'s Daily Task Scheduler` : 'Your Daily Task Scheduler'}
@@ -307,7 +365,15 @@ const Index = () => {
             <Card className="backdrop-blur-sm bg-gradient-to-r from-purple-100/50 to-blue-100/50 border-purple-200 shadow-lg">
               <CardContent className="p-4">
                 <div className="flex items-center justify-center gap-3">
-                  {isSistersBirthday ? (
+                  {isUsersBirthday ? (
+                    <>
+                      <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
+                      <blockquote className="text-lg font-medium text-pink-700 italic text-center">
+                        Happy Birthday {userName}! 🎉💖 May your day be as amazing as you are!
+                      </blockquote>
+                      <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
+                    </>
+                  ) : isSistersBirthday ? (
                     <>
                       <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
                       <blockquote className="text-lg font-medium text-pink-700 italic text-center">
@@ -326,14 +392,12 @@ const Index = () => {
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground text-center mt-2">
-                  {isSistersBirthday ? '- From your loving sibling 💝' : '- Robert Collier'}
+                  {isUsersBirthday ? 'Have a wonderful day! 🎂' : 
+                   isSistersBirthday ? '- From your loving sibling 💝' : '- Robert Collier'}
                 </p>
               </CardContent>
             </Card>
           </div>
-        
-
-         
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -422,13 +486,12 @@ const Index = () => {
         </div>
       </div>
 
-    <TaskAnimation
-  key={animationTrigger.show ? Date.now() : 'none'} // force remount
-  type={animationTrigger.type}
-  trigger={animationTrigger.show}
-  onComplete={() => setAnimationTrigger({ show: false, type: 'complete' })}
-/>
-
+      <TaskAnimation
+        key={animationTrigger.show ? Date.now() : 'none'}
+        type={animationTrigger.type}
+        trigger={animationTrigger.show}
+        onComplete={() => setAnimationTrigger({ show: false, type: 'complete' })}
+      />
     </div>
   );
 };

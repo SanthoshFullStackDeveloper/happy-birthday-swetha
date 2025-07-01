@@ -120,7 +120,7 @@
 //   };
 // };
 
-// firebase.ts
+// firebase.tsimport { initializeApp } from "firebase/app";// src/firebase.ts
 import { initializeApp } from "firebase/app";
 import { 
   initializeAuth, 
@@ -138,6 +138,7 @@ import {
   serverTimestamp,
   collection,
   addDoc,
+  getDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -183,6 +184,28 @@ export const logInWithEmail = async (email: string, password: string) => {
 
 export const logOut = async () => {
   return await signOut(auth);
+};
+
+// User profile functions
+export const updateUserProfileData = async (userId: string, data: { birthDate?: Date | null }) => {
+  try {
+    const userProfileRef = doc(db, "userProfiles", userId);
+    await setDoc(userProfileRef, data, { merge: true });
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    throw error;
+  }
+};
+
+export const getUserProfileData = async (userId: string) => {
+  try {
+    const docRef = doc(db, "userProfiles", userId);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() ? docSnap.data() : null;
+  } catch (error) {
+    console.error('Error getting user profile:', error);
+    throw error;
+  }
 };
 
 // Task/Event functions
