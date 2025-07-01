@@ -15,27 +15,39 @@ const Signup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    try {
-      await signUpWithEmail(name, email, password);
-      navigate('/');
-      toast({
-        title: 'Account created',
-        description: 'Welcome to Daily Task Scheduler!',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Signup failed',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsLoading(true);
+
+  // Custom email domain validation
+  if (!email.endsWith('@swetha.com')) {
+    toast({
+      title: 'Invalid Email',
+      description: 'Please use my sister domain @swetha.com email address.',
+      variant: 'destructive',
+    });
+    setIsLoading(false);
+    return;
+  }
+
+  try {
+    await signUpWithEmail(name, email, password);
+    navigate('/');
+    toast({
+      title: 'Account created',
+      description: 'Welcome to Daily Task Scheduler!',
+    });
+  } catch (error: any) {
+    toast({
+      title: 'Signup failed',
+      description: error.message,
+      variant: 'destructive',
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   return (
     <AuthLayout title="Create Account" description="Get started with your task management">
