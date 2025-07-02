@@ -307,9 +307,12 @@ const Index = () => {
     return <WelcomeAnimation onComplete={() => setShowWelcome(false)} />;
   }
 
-  const isUsersBirthday = birthDate && 
-    selectedDate.getDate() === birthDate.getDate() && 
-    selectedDate.getMonth() === birthDate.getMonth();
+const userEmail = auth.currentUser?.email || '';
+
+const isUsersBirthday = birthDate &&
+  userEmail.endsWith('@birthday.com') &&
+  selectedDate.getDate() === birthDate.getDate() &&
+  selectedDate.getMonth() === birthDate.getMonth();
 
   const isSistersBirthday = selectedDate.getDate() === 18 && selectedDate.getMonth() === 6;
 
@@ -373,15 +376,26 @@ const Index = () => {
                       </blockquote>
                       <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
                     </>
-                  ) : isSistersBirthday ? (
-                    <>
-                      <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
-                      <blockquote className="text-lg font-medium text-pink-700 italic text-center">
-                        Happy Birthday to the most wonderful sister! 🎉💖 May your day be as amazing as you are!
-                      </blockquote>
-                      <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
-                    </>
-                  ) : (
+                ) : isSistersBirthday ? (
+  userEmail === 'princess@birthday.com' ? (
+    <>
+      <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
+      <blockquote className="text-lg font-medium text-pink-700 italic text-center">
+        Happy Birthday to the most wonderful sister! 🎉💖 May your day be as amazing as you are!
+      </blockquote>
+      <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
+    </>
+  ) : (
+    <>
+      <Heart className="h-6 w-6 text-purple-600 flex-shrink-0 animate-pulse" />
+      <blockquote className="text-lg font-medium text-purple-700 italic text-center">
+        It's Swetha's birthday today! 🎂 Don't forget to send your wishes 💌
+      </blockquote>
+      <Heart className="h-6 w-6 text-purple-600 flex-shrink-0 animate-pulse" />
+    </>
+  )
+) : (
+
                     <>
                       <Quote className="h-6 w-6 text-purple-600 flex-shrink-0" />
                       <blockquote className="text-lg font-medium text-gray-700 italic text-center">

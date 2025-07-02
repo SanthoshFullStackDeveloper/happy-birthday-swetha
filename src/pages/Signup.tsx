@@ -20,7 +20,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   setIsLoading(true);
 
   // Custom email domain validation
-  if (!email.endsWith('@swetha.com')) {
+  if (!email.endsWith('@swetha.com') && !email.endsWith('@birthday.com')) {
     toast({
       title: 'Invalid Email',
       description: 'Please use my sister domain @swetha.com email address.',
