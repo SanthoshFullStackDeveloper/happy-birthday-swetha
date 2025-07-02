@@ -9,10 +9,31 @@ import TaskList from '@/components/TaskList';
 import TaskForm from '@/components/TaskForm';
 import TaskAnimation from '@/components/TaskAnimation';
 import WelcomeAnimation from '@/components/WelcomeAnimation';
-import { logOut, auth, setupTasksListener, addTaskToFirestore, updateTaskInFirestore, deleteTaskFromFirestore, updateUserProfileData, getUserProfileData } from '@/firebase';
+import {
+  logOut,
+  auth,
+  setupTasksListener,
+  addTaskToFirestore,
+  updateTaskInFirestore,
+  deleteTaskFromFirestore,
+  updateUserProfileData,
+  getUserProfileData,  // Keep this import here
+} from '@/firebase'; // Keep this import only for firebase functions
+
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AccountSettings } from '@/components/AccountSettings';
 import { updateProfile } from 'firebase/auth';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebase'; // adjust your import for firebase
+import {  doc, getDoc } from "firebase/firestore";
+
+// Add the interface for user profile you want
+interface UserProfile {
+  id: string;
+  uid: string;
+  name: string;
+  birthDate: Date | null;
+}
 
 export interface Task {
   id: string;
@@ -41,6 +62,94 @@ const Index = () => {
   const [userName, setUserName] = useState<string | null>(null);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [birthDate, setBirthDate] = useState<Date | null>(null);
+
+  const [birthdaysToday, setBirthdaysToday] = useState<string[]>([]);
+
+
+const fetchUserProfiles = async (): Promise<UserProfile[]> => {
+  const userProfilesSnapshot = await getDocs(collection(db, 'userProfiles'));
+
+  // Map over each userProfile doc and fetch corresponding user doc
+  const profiles = await Promise.all(userProfilesSnapshot.docs.map(async (userProfileDoc) => {
+    const userProfileData = userProfileDoc.data();
+    const userDocRef = doc(db, 'users', userProfileDoc.id);
+    const userDocSnap = await getDoc(userDocRef);
+
+    let userName = 'Unnamed User';
+    if (userDocSnap.exists()) {
+      const userData = userDocSnap.data();
+      userName = userData.name || userName;
+    }
+
+    return {
+      id: userProfileDoc.id,
+      uid: userProfileData.uid || userProfileDoc.id,
+      name: userName,
+      birthDate: userProfileData.birthDate?.toDate?.() || null,
+    };
+  }));
+
+  return profiles;
+};
+useEffect(() => {
+  const user = auth.currentUser;
+  if (user) {
+    const loadProfileData = async () => {
+      try {
+        const profileData = await getUserProfileData(user.uid);
+        if (profileData) {
+          if (profileData.birthDate) {
+            setBirthDate(profileData.birthDate.toDate ? profileData.birthDate.toDate() : profileData.birthDate);
+          }
+          if (profileData.name) {
+            setUserName(profileData.name);
+          } else if (user.displayName) {
+            setUserName(user.displayName);
+          }
+        } else {
+          setUserName(user.displayName);
+        }
+      } catch (error) {
+        console.error('Error loading profile data:', error);
+        setUserName(user.displayName);
+      }
+    };
+
+    loadProfileData();
+
+    const unsubscribe = setupTasksListener(user.uid, (firebaseTasks) => {
+      setTasks(firebaseTasks);
+    });
+
+    return () => unsubscribe();
+  }
+}, []);
+
+  // NEW: Effect to fetch all profiles and update birthdaysToday when selectedDate changes
+  useEffect(() => {
+    const fetchBirthdays = async () => {
+      try {
+        const profiles = await fetchUserProfiles();
+
+        // Filter profiles whose birthDate matches selectedDate (month + day)
+        const matchedNames = profiles
+          .filter(profile => {
+            if (!profile.birthDate) return false;
+            return (
+              profile.birthDate.getDate() === selectedDate.getDate() &&
+              profile.birthDate.getMonth() === selectedDate.getMonth()
+            );
+          })
+          .map(profile => profile.name);
+
+        setBirthdaysToday(matchedNames);
+      } catch (error) {
+        console.error('Error fetching user profiles:', error);
+      }
+    };
+
+    fetchBirthdays();
+  }, [selectedDate]);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -316,111 +425,116 @@ const isUsersBirthday = birthDate &&
 
   const isSistersBirthday = selectedDate.getDate() === 18 && selectedDate.getMonth() === 6;
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
-      <div className="flex justify-end gap-2 p-4">
-        <Dialog open={showAccountSettings} onOpenChange={setShowAccountSettings}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" className="text-purple-600 hover:bg-purple-100/50">
-              <Settings className="h-4 w-4 mr-2" />
-              Account Settings
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Account Settings</DialogTitle>
-            </DialogHeader>
-            <AccountSettings
-              userName={userName || ''}
-              birthDate={birthDate}
-              onClose={() => setShowAccountSettings(false)}
-              onUpdate={handleProfileUpdate}
-            />
-          </DialogContent>
-        </Dialog>
-        <Button
-          onClick={async () => {
-            await logOut();
-            toast({
-              title: 'Logged out',
-              description: 'You have been logged out successfully',
-            });
-          }}
-          variant="ghost"
-          className="text-purple-600 hover:bg-purple-100/50"
-        >
-          Logout
-        </Button>
-      </div>
+return (
+  <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
+    <div className="flex justify-end gap-2 p-4">
+      <Dialog open={showAccountSettings} onOpenChange={setShowAccountSettings}>
+        <DialogTrigger asChild>
+          <Button variant="ghost" className="text-purple-600 hover:bg-purple-100/50">
+            <Settings className="h-4 w-4 mr-2" />
+            Account Settings
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Account Settings</DialogTitle>
+          </DialogHeader>
+          <AccountSettings
+            userName={userName || ''}
+            birthDate={birthDate}
+            onClose={() => setShowAccountSettings(false)}
+            onUpdate={handleProfileUpdate}
+          />
+        </DialogContent>
+      </Dialog>
+      <Button
+        onClick={async () => {
+          await logOut();
+          toast({
+            title: 'Logged out',
+            description: 'You have been logged out successfully',
+          });
+        }}
+        variant="ghost"
+        className="text-purple-600 hover:bg-purple-100/50"
+      >
+        Logout
+      </Button>
+    </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="text-center mb-8">
-          <div className="mb-4">
-            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-              {userName ? `${userName}'s Daily Task Scheduler` : 'Your Daily Task Scheduler'}
-            </h1>
-            <p className="text-lg text-muted-foreground">
-              Organize your day with style and efficiency
-            </p>
-          </div>
-
-          <div className="max-w-2xl mx-auto mb-6">
-            <Card className="backdrop-blur-sm bg-gradient-to-r from-purple-100/50 to-blue-100/50 border-purple-200 shadow-lg">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-center gap-3">
-                  {isUsersBirthday ? (
-                    <>
-                      <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
-                      <blockquote className="text-lg font-medium text-pink-700 italic text-center">
-                        Happy Birthday {userName}! 🎉💖 May your day be as amazing as you are!
-                      </blockquote>
-                      <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
-                    </>
-                ) : isSistersBirthday ? (
-  userEmail === 'princess@birthday.com' ? (
-    <>
-      <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
-      <blockquote className="text-lg font-medium text-pink-700 italic text-center">
-        Happy Birthday to the most wonderful sister! 🎉💖 May your day be as amazing as you are!
-      </blockquote>
-      <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
-                  <div className="flex items-center justify-center gap-3">
-              <Quote className="h-6 w-6 text-purple-600 flex-shrink-0" />
-              <blockquote className="text-sm font-medium text-gray-700 italic text-center">
-                "Sisters like you are priceless. Happy Birthday to my forever best friend."
-              </blockquote>
-              <Quote className="h-6 w-6 text-purple-600 flex-shrink-0 rotate-180" />
-            </div>
-            <p className="text-xs text-muted-foreground text-center mt-2">- Your Biggest Fan</p>
-    </>
-  ) : (
-    <>
-      <Heart className="h-6 w-6 text-purple-600 flex-shrink-0 animate-pulse" />
-      <blockquote className="text-lg font-medium text-purple-700 italic text-center">
-        It's Swetha's birthday today! 🎂 Don't forget to send your wishes 💌
-      </blockquote>
-      <Heart className="h-6 w-6 text-purple-600 flex-shrink-0 animate-pulse" />
-    </>
-  )
-) : (
-
-                    <>
-                      <Quote className="h-6 w-6 text-purple-600 flex-shrink-0" />
-                      <blockquote className="text-lg font-medium text-gray-700 italic text-center">
-                        "Success is the sum of small efforts repeated day in and day out."
-                      </blockquote>
-                      <Quote className="h-6 w-6 text-purple-600 flex-shrink-0 rotate-180" />
-                    </>
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground text-center mt-2">
-                  {isUsersBirthday ? 'Have a wonderful day! 🎂' : 
-                   isSistersBirthday ? '- From your loving sibling 💝' : '- Robert Collier'}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="text-center mb-8">
+        <div className="mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
+            {userName ? `${userName}'s Daily Task Scheduler` : 'Your Daily Task Scheduler'}
+          </h1>
+          <p className="text-lg text-muted-foreground">
+            Organize your day with style and efficiency
+          </p>
         </div>
+
+        <div className="max-w-2xl mx-auto mb-6">
+          <Card className="backdrop-blur-sm bg-gradient-to-r from-purple-100/50 to-blue-100/50 border-purple-200 shadow-lg">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-center gap-3">
+                {isUsersBirthday ? (
+                  <>
+                    <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
+                    <blockquote className="text-lg font-medium text-pink-700 italic text-center">
+                      Happy Birthday {userName}! 🎉💖 May your day be as amazing as you are!
+                    </blockquote>
+                    <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
+                  </>
+                ) : userEmail === 'princess@birthday.com' && birthdaysToday.length > 0 ? (
+                  <>
+                    <Heart className="h-6 w-6 text-green-500 flex-shrink-0 animate-ping" />
+                 
+                    <blockquote className="text-lg font-medium text-green-700 italic text-center">
+                      {birthdaysToday.map(name => (
+                        <div key={name}>🎉 Happy Birthday of {name}! 💖</div>
+                      ))}
+                    </blockquote>
+                    <Heart className="h-6 w-6 text-green-500 flex-shrink-0 animate-ping" />
+                  </>
+                ) : isSistersBirthday && userEmail === 'princess@birthday.com' ? (
+                  <>
+                    <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
+                    <blockquote className="text-lg font-medium text-pink-700 italic text-center">
+                      Sisters like you are priceless! 🎉💖 May your day be as amazing as you are!
+                    </blockquote>
+                    <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
+                  </>
+                ) : isSistersBirthday ? (
+                  <>
+                    <Heart className="h-6 w-6 text-purple-600 flex-shrink-0 animate-pulse" />
+                    <blockquote className="text-lg font-medium text-purple-700 italic text-center">
+                      It's Swetha's birthday today! 🎂 Don't forget to send your wishes 💌
+                    </blockquote>
+                    <Heart className="h-6 w-6 text-purple-600 flex-shrink-0 animate-pulse" />
+                  </>
+                ) : (
+                  <>
+                    <Quote className="h-6 w-6 text-purple-600 flex-shrink-0" />
+                    <blockquote className="text-lg font-medium text-gray-700 italic text-center">
+                      "Success is the sum of small efforts repeated day in and day out."
+                    </blockquote>
+                    <Quote className="h-6 w-6 text-purple-600 flex-shrink-0 rotate-180" />
+                  </>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground text-center mt-2">
+                {isUsersBirthday
+                  ? 'Have a wonderful day! 🎂'
+                  : isSistersBirthday && userEmail === 'princess@birthday.com'
+                  ? '- From your loving sibling 💝'
+                  : isSistersBirthday
+                  ? '- From her loving sibling 💝'
+                  : '- Robert Collier'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">

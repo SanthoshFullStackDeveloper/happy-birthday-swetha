@@ -197,16 +197,21 @@ export const updateUserProfileData = async (userId: string, data: { birthDate?: 
   }
 };
 
-export const getUserProfileData = async (userId: string) => {
+export const getUserProfileData = async (uid: string) => {
   try {
-    const docRef = doc(db, "userProfiles", userId);
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? docSnap.data() : null;
+    const userDoc = await getDoc(doc(db, "users", uid));
+    const profileDoc = await getDoc(doc(db, "userProfiles", uid));
+
+    const userData = userDoc.exists() ? userDoc.data() : {};
+    const profileData = profileDoc.exists() ? profileDoc.data() : {};
+
+    return { ...userData, ...profileData };
   } catch (error) {
-    console.error('Error getting user profile:', error);
-    throw error;
+    console.error("Error getting user profile:", error);
+    return null;
   }
 };
+
 
 // Task/Event functions
 export const addTaskToFirestore = async (task: any) => {
@@ -270,3 +275,4 @@ export const setupTasksListener = (userId: string, callback: (tasks: any[]) => v
     unsubscribeEvents();
   };
 };
+
