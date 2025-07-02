@@ -310,7 +310,7 @@ const Index = () => {
 const userEmail = auth.currentUser?.email || '';
 
 const isUsersBirthday = birthDate &&
-  userEmail.endsWith('@birthday.com') &&
+  userEmail.endsWith('@swetha.com') &&
   selectedDate.getDate() === birthDate.getDate() &&
   selectedDate.getMonth() === birthDate.getMonth();
 
