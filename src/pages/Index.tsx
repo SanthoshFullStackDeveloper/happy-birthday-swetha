@@ -384,6 +384,14 @@ const isUsersBirthday = birthDate &&
         Happy Birthday to the most wonderful sister! 🎉💖 May your day be as amazing as you are!
       </blockquote>
       <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
+                  <div className="flex items-center justify-center gap-3">
+              <Quote className="h-6 w-6 text-purple-600 flex-shrink-0" />
+              <blockquote className="text-sm font-medium text-gray-700 italic text-center">
+                "Sisters like you are priceless. Happy Birthday to my forever best friend."
+              </blockquote>
+              <Quote className="h-6 w-6 text-purple-600 flex-shrink-0 rotate-180" />
+            </div>
+            <p className="text-xs text-muted-foreground text-center mt-2">- Your Biggest Fan</p>
     </>
   ) : (
     <>

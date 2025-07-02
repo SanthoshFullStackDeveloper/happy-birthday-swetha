@@ -32,11 +32,12 @@ const AuthLayout = ({ children, title, description }: AuthLayoutProps) => {
             <div className="flex items-center justify-center gap-3">
               <Quote className="h-6 w-6 text-purple-600 flex-shrink-0" />
               <blockquote className="text-sm font-medium text-gray-700 italic text-center">
-                "Sisters like you are priceless. Happy Birthday to my forever best friend."
+                "Happy Birthday, Swetha! 🎉<br />This whole app is my little gift to my sister — organized just like mysister!"
+        
               </blockquote>
               <Quote className="h-6 w-6 text-purple-600 flex-shrink-0 rotate-180" />
             </div>
-            <p className="text-xs text-muted-foreground text-center mt-2">- Your Biggest Fan</p>
+            <p className="text-xs text-muted-foreground text-center mt-2">– With 💖, Your Dev Brother</p>
           </CardContent>
         </Card>
       </div>
