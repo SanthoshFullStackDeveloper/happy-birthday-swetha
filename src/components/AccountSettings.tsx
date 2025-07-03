@@ -7,7 +7,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 
 interface AccountSettingsProps {
   userName: string;
@@ -27,6 +33,7 @@ export const AccountSettings = ({
   const [isSaving, setIsSaving] = useState(false);
   const [year, setYear] = useState<number>(date?.getFullYear() || new Date().getFullYear());
   const [visibleMonth, setVisibleMonth] = useState<Date>(date || new Date(year, 0, 1));
+  const [popoverOpen, setPopoverOpen] = useState(false); // 👈 Control popover visibility
 
   // Generate years from 1900 to current year
   const years = Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i) => 1900 + i).reverse();
@@ -79,7 +86,7 @@ export const AccountSettings = ({
 
       <div>
         <Label>Birth Date (optional)</Label>
-        <Popover>
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
@@ -107,18 +114,30 @@ export const AccountSettings = ({
                   </SelectContent>
                 </Select>
               </div>
-<Calendar
-  mode="single"
-  selected={date}
-  onSelect={setDate}
-  onMonthChange={setVisibleMonth} // <-- Add this line
-  initialFocus
-  month={visibleMonth}
-  className="rounded-md border"
-  fromYear={1900}
-  toYear={new Date().getFullYear()}
-/>
 
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={setDate}
+                onMonthChange={setVisibleMonth}
+                initialFocus
+                month={visibleMonth}
+                className="rounded-md border"
+                fromYear={1900}
+                toYear={new Date().getFullYear()}
+              />
+
+              <div className="flex justify-end px-2 pt-1">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setPopoverOpen(false);
+                    // handleSave(); // Save changes after selecting date
+                  }}
+                >
+                  OK
+                </Button>
+              </div>
             </div>
           </PopoverContent>
         </Popover>
