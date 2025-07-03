@@ -63,6 +63,57 @@ const Index = () => {
   const [birthDate, setBirthDate] = useState<Date | null>(null);
   const [birthdaysToday, setBirthdaysToday] = useState<string[]>([]);
 
+  // Calculate age based on birth date
+  const calculateAge = (birthDate: Date, currentDate: Date): number => {
+    const currentYear = currentDate.getFullYear();
+    const birthYear = birthDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+    const birthMonth = birthDate.getMonth();
+    const currentDay = currentDate.getDate();
+    const birthDay = birthDate.getDate();
+
+    let age = currentYear - birthYear;
+    
+    if (currentMonth < birthMonth || 
+        (currentMonth === birthMonth && currentDay < birthDay)) {
+      age--;
+    }
+    
+    return age;
+  };
+
+  // Get the ordinal suffix for age (1st, 2nd, 3rd, etc.)
+  const getOrdinalSuffix = (num: number): string => {
+    const j = num % 10;
+    const k = num % 100;
+    if (j === 1 && k !== 11) return 'st';
+    if (j === 2 && k !== 12) return 'nd';
+    if (j === 3 && k !== 13) return 'rd';
+    return 'th';
+  };
+
+  // Generate personalized birthday message based on age
+  const getBirthdayMessage = (age: number, name: string): string => {
+    const ageString = `${age}${getOrdinalSuffix(age)}`;
+    
+    const specialMessages: Record<number, string> = {
+      1: `Happy 1st Birthday ${name}! 🎂👶 One year of amazing you!`,
+      5: `Happy 5th Birthday ${name}! 🎉🎂 Five years of joy!`,
+      10: `Happy ${ageString} Birthday ${name}! 🎂✨ Double digits now!`,
+      13: `Happy ${ageString} Birthday ${name}! 🎉🔮 Welcome to teen years!`,
+      16: `Happy Sweet 16 ${name}! 🎂💖 Enjoy your special day!`,
+      18: `Happy ${ageString} Birthday ${name}! 🎉🎂 Welcome to adulthood!`,
+      21: `Happy ${ageString} Birthday ${name}! 🎉 Cheers to your 21st!`,
+      30: `Happy ${ageString} Birthday ${name}! 🎂✨ Welcome to your 30s!`,
+      40: `Happy ${ageString} Birthday ${name}! 🎂 Like fine wine, you get better!`,
+      50: `Happy ${ageString} Birthday ${name}! 🎉 Half a century young!`,
+      60: `Happy ${ageString} Birthday ${name}! 🎂✨ Diamond jubilee celebration!`,
+      100: `Happy Centennial Birthday ${name}! 🎉💯 A century of amazing you!`
+    };
+
+    return specialMessages[age] || `Happy ${ageString} Birthday ${name}! 🎉💖 May your day be amazing!`;
+  };
+
   const fetchUserProfiles = async (): Promise<UserProfile[]> => {
     const userProfilesSnapshot = await getDocs(collection(db, 'userProfiles'));
     const profiles = await Promise.all(userProfilesSnapshot.docs.map(async (userProfileDoc) => {
@@ -87,48 +138,44 @@ const Index = () => {
     return profiles;
   };
 
-const rescheduleTask = async (taskId: string, newDate: string, newTime?: string) => {
-  const task = tasks.find(t => t.id === taskId);
-  if (!task) return;
+  const rescheduleTask = async (taskId: string, newDate: string, newTime?: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
 
-  try {
-    // Create the update object without undefined fields
-    const updates: Record<string, any> = {
-      date: newDate,
-      status: 'pending', // Reset status to pending
-    };
+    try {
+      const updates: Record<string, any> = {
+        date: newDate,
+        status: 'pending',
+      };
 
-    // Only include time if it's provided
-    if (newTime) {
-      updates.time = newTime;
+      if (newTime) {
+        updates.time = newTime;
+      }
+
+      if ('failed' in task) {
+        updates.failed = null;
+      }
+
+      await updateTaskInFirestore(taskId, updates, task.isEvent || false);
+      toast({
+        title: 'Task rescheduled!',
+        description: 'The task has been moved to the new date',
+      });
+    } catch (error: any) {
+      console.error('Error rescheduling task:', error);
+      toast({
+        title: 'Error rescheduling task',
+        description: error.message || 'There was an error rescheduling your task',
+        variant: 'destructive'
+      });
     }
+  };
 
-    // Remove the failed field instead of setting it to undefined
-    if ('failed' in task) {
-      updates.failed = null; // or use firestore.FieldValue.delete() if you want to remove it completely
-    }
-
-    await updateTaskInFirestore(taskId, updates, task.isEvent || false);
-    toast({
-      title: 'Task rescheduled!',
-      description: 'The task has been moved to the new date',
-    });
-  } catch (error: any) {
-    console.error('Error rescheduling task:', error);
-    toast({
-      title: 'Error rescheduling task',
-      description: error.message || 'There was an error rescheduling your task',
-      variant: 'destructive'
-    });
-  }
-};
   const checkTaskStatus = (task: Task, currentDate: Date): Task => {
-    // Don't mark completed tasks or all-day events as failed
     if (task.status === 'completed' || task.isEvent || !task.time) return task;
 
     const taskDateTime = new Date(`${task.date}T${task.time}`);
     
-    // If task time has passed and status is not completed, mark as failed
     if (taskDateTime < currentDate && task.status !== 'completed') {
       return {
         ...task,
@@ -305,64 +352,64 @@ const rescheduleTask = async (taskId: string, newDate: string, newTime?: string)
     }
   };
 
-const updateTask = async (taskId: string, updates: Partial<Task>, targetDate?: string) => {
-  const oldTask = tasks.find(t => t.id === taskId);
-  if (!oldTask) return;
+  const updateTask = async (taskId: string, updates: Partial<Task>, targetDate?: string) => {
+    const oldTask = tasks.find(t => t.id === taskId);
+    if (!oldTask) return;
 
-  // Create clean updates without undefined values
-  const cleanUpdates: Record<string, any> = {};
-  for (const [key, value] of Object.entries(updates)) {
-    if (value !== undefined) {
-      cleanUpdates[key] = value;
+    const cleanUpdates: Record<string, any> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined) {
+        cleanUpdates[key] = value;
+      }
     }
-  }
 
-  let updatedTask = { ...oldTask };
+    let updatedTask = { ...oldTask };
 
-  if (oldTask.isEvent) {
-    if (cleanUpdates.status && targetDate) {
-      const perDayStatus = { ...(oldTask.perDayStatus || {}) };
-      perDayStatus[targetDate] = cleanUpdates.status;
+    if (oldTask.isEvent) {
+      if (cleanUpdates.status && targetDate) {
+        const perDayStatus = { ...(oldTask.perDayStatus || {}) };
+        perDayStatus[targetDate] = cleanUpdates.status;
 
-      updatedTask = {
-        ...oldTask,
-        perDayStatus,
-        status: oldTask.status
-      };
+        updatedTask = {
+          ...oldTask,
+          perDayStatus,
+          status: oldTask.status
+        };
+      } else {
+        updatedTask = { ...oldTask, ...cleanUpdates };
+      }
     } else {
       updatedTask = { ...oldTask, ...cleanUpdates };
     }
-  } else {
-    updatedTask = { ...oldTask, ...cleanUpdates };
-  }
 
-  try {
-    await updateTaskInFirestore(updatedTask.id, cleanUpdates, updatedTask.isEvent || false);
+    try {
+      await updateTaskInFirestore(updatedTask.id, cleanUpdates, updatedTask.isEvent || false);
 
-    const oldStatus = oldTask.isEvent
-      ? oldTask.perDayStatus?.[selectedDateString] || oldTask.status
-      : oldTask.status;
+      const oldStatus = oldTask.isEvent
+        ? oldTask.perDayStatus?.[selectedDateString] || oldTask.status
+        : oldTask.status;
 
-    const newStatus = oldTask.isEvent
-      ? updatedTask.perDayStatus?.[selectedDateString] || updatedTask.status
-      : updatedTask.status;
+      const newStatus = oldTask.isEvent
+        ? updatedTask.perDayStatus?.[selectedDateString] || updatedTask.status
+        : updatedTask.status;
 
-    const isNewlyCompleted = newStatus === 'completed' && oldStatus !== 'completed';
+      const isNewlyCompleted = newStatus === 'completed' && oldStatus !== 'completed';
 
-    if (isNewlyCompleted) {
-      triggerAnimation('complete');
-    } else {
-      triggerAnimation('edit');
+      if (isNewlyCompleted) {
+        triggerAnimation('complete');
+      } else {
+        triggerAnimation('edit');
+      }
+    } catch (error: any) {
+      console.error('Error updating task:', error);
+      toast({
+        title: 'Error updating task',
+        description: error.message || 'There was an error updating your task',
+        variant: 'destructive'
+      });
     }
-  } catch (error: any) {
-    console.error('Error updating task:', error);
-    toast({
-      title: 'Error updating task',
-      description: error.message || 'There was an error updating your task',
-      variant: 'destructive'
-    });
-  }
-};
+  };
+
   const deleteTask = async (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
@@ -440,10 +487,12 @@ const updateTask = async (taskId: string, updates: Partial<Task>, targetDate?: s
 
   const userEmail = auth.currentUser?.email || '';
   const isUsersBirthday = birthDate &&
-    userEmail.endsWith('@swetha.com') &&
     selectedDate.getDate() === birthDate.getDate() &&
     selectedDate.getMonth() === birthDate.getMonth();
+  
+  const userAge = isUsersBirthday ? calculateAge(birthDate, selectedDate) : 0;
   const isSistersBirthday = selectedDate.getDate() === 18 && selectedDate.getMonth() === 6;
+  const sisterAge = isSistersBirthday ? calculateAge(new Date(2006, 6, 18), selectedDate) : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
@@ -455,7 +504,7 @@ const updateTask = async (taskId: string, updates: Partial<Task>, targetDate?: s
               Account Settings
             </Button>
           </DialogTrigger>
-          <DialogContent  className="max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Account Settings</DialogTitle>
             </DialogHeader>
@@ -501,7 +550,7 @@ const updateTask = async (taskId: string, updates: Partial<Task>, targetDate?: s
                     <>
                       <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
                       <blockquote className="text-lg font-medium text-pink-700 italic text-center">
-                        Happy Birthday {userName}! 🎉💖 May your day be as amazing as you are!
+                        {getBirthdayMessage(userAge, userName || '')}
                       </blockquote>
                       <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
                     </>
@@ -510,7 +559,7 @@ const updateTask = async (taskId: string, updates: Partial<Task>, targetDate?: s
                       <Heart className="h-6 w-6 text-green-500 flex-shrink-0 animate-ping" />
                       <blockquote className="text-lg font-medium text-green-700 italic text-center">
                         {birthdaysToday.map(name => (
-                          <div key={name}>🎉 Happy Birthday of {name}! 💖</div>
+                          <div key={name}>🎉 Happy Birthday {name}! 💖</div>
                         ))}
                       </blockquote>
                       <Heart className="h-6 w-6 text-green-500 flex-shrink-0 animate-ping" />
@@ -519,7 +568,7 @@ const updateTask = async (taskId: string, updates: Partial<Task>, targetDate?: s
                     <>
                       <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
                       <blockquote className="text-lg font-medium text-pink-700 italic text-center">
-                        Sisters like you are priceless! 🎉💖 May your day be as amazing as you are!
+                        {getBirthdayMessage(sisterAge, 'Sister')}
                       </blockquote>
                       <Heart className="h-6 w-6 text-pink-500 flex-shrink-0 animate-bounce" />
                     </>
@@ -527,7 +576,7 @@ const updateTask = async (taskId: string, updates: Partial<Task>, targetDate?: s
                     <>
                       <Heart className="h-6 w-6 text-purple-600 flex-shrink-0 animate-pulse" />
                       <blockquote className="text-lg font-medium text-purple-700 italic text-center">
-                        It's Swetha's birthday today! 🎂 Don't forget to send your wishes 💌
+                        {`It's Swetha's ${sisterAge}${getOrdinalSuffix(sisterAge)} birthday today! 🎂`}
                       </blockquote>
                       <Heart className="h-6 w-6 text-purple-600 flex-shrink-0 animate-pulse" />
                     </>
@@ -635,15 +684,15 @@ const updateTask = async (taskId: string, updates: Partial<Task>, targetDate?: s
                     />
                   </div>
                 )}
-<TaskList
-  tasks={tasksForSelectedDate}
-  selectedDate={selectedDateString}
-  onUpdateTask={(taskId, updates) => updateTask(taskId, updates, selectedDateString)}
-  onDeleteTask={deleteTask}
-  onReorderTasks={reorderTasks}
-  onEditTask={handleEditTask}
-  onRescheduleTask={rescheduleTask} // Add this new prop
-/>
+                <TaskList
+                  tasks={tasksForSelectedDate}
+                  selectedDate={selectedDateString}
+                  onUpdateTask={(taskId, updates) => updateTask(taskId, updates, selectedDateString)}
+                  onDeleteTask={deleteTask}
+                  onReorderTasks={reorderTasks}
+                  onEditTask={handleEditTask}
+                  onRescheduleTask={rescheduleTask}
+                />
               </CardContent>
             </Card>
           </div>

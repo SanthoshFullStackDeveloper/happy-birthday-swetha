@@ -14,9 +14,11 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
+import { getAuth } from 'firebase/auth'; // or your auth provider
 
 interface AccountSettingsProps {
   userName: string;
+  userEmail: string; // Add email to props
   birthDate?: Date | null;
   onClose: () => void;
   onUpdate: (newName: string, newBirthDate?: Date | null) => Promise<void>;
@@ -24,6 +26,7 @@ interface AccountSettingsProps {
 
 export const AccountSettings = ({
   userName,
+  userEmail,
   birthDate,
   onClose,
   onUpdate
@@ -33,7 +36,7 @@ export const AccountSettings = ({
   const [isSaving, setIsSaving] = useState(false);
   const [year, setYear] = useState<number>(date?.getFullYear() || new Date().getFullYear());
   const [visibleMonth, setVisibleMonth] = useState<Date>(date || new Date(year, 0, 1));
-  const [popoverOpen, setPopoverOpen] = useState(false); // 👈 Control popover visibility
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   // Generate years from 1900 to current year
   const years = Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i) => 1900 + i).reverse();
@@ -52,6 +55,9 @@ export const AccountSettings = ({
       setVisibleMonth(newMonth);
     }
   };
+
+  const auth = getAuth();
+const user = auth.currentUser;
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -74,6 +80,15 @@ export const AccountSettings = ({
 
   return (
     <div className="space-y-4">
+      <div>
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          value={user.email}
+          className="mt-1 bg-gray-100 cursor-not-allowed text-black"
+        />
+      </div>
+
       <div>
         <Label htmlFor="name">Name</Label>
         <Input
@@ -132,7 +147,6 @@ export const AccountSettings = ({
                   size="sm"
                   onClick={() => {
                     setPopoverOpen(false);
-                    // handleSave(); // Save changes after selecting date
                   }}
                 >
                   OK
