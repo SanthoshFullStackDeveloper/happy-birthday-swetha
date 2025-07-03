@@ -455,7 +455,7 @@ const updateTask = async (taskId: string, updates: Partial<Task>, targetDate?: s
               Account Settings
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent  className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Account Settings</DialogTitle>
             </DialogHeader>

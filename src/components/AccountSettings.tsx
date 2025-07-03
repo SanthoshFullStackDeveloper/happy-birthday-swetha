@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface AccountSettingsProps {
   userName: string;
@@ -24,6 +25,26 @@ export const AccountSettings = ({
   const [name, setName] = useState(userName);
   const [date, setDate] = useState<Date | undefined>(birthDate || undefined);
   const [isSaving, setIsSaving] = useState(false);
+  const [year, setYear] = useState<number>(date?.getFullYear() || new Date().getFullYear());
+  const [visibleMonth, setVisibleMonth] = useState<Date>(date || new Date(year, 0, 1));
+
+  // Generate years from 1900 to current year
+  const years = Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i) => 1900 + i).reverse();
+
+  const handleYearChange = (selectedYear: string) => {
+    const newYear = parseInt(selectedYear, 10);
+    setYear(newYear);
+
+    if (date) {
+      const newDate = new Date(date);
+      newDate.setFullYear(newYear);
+      setDate(newDate);
+      setVisibleMonth(newDate);
+    } else {
+      const newMonth = new Date(newYear, 0, 1);
+      setVisibleMonth(newMonth);
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -68,13 +89,36 @@ export const AccountSettings = ({
               {date ? format(date, 'PPP') : <span>Pick a date</span>}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0">
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={setDate}
-              initialFocus
-            />
+          <PopoverContent
+            className="w-auto p-0 left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 fixed z-50"
+          >
+            <div className="flex flex-col gap-2 p-2">
+              <div className="relative px-2">
+                <Select value={year.toString()} onValueChange={handleYearChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select year" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 overflow-auto">
+                    {years.map((yearOption) => (
+                      <SelectItem key={yearOption} value={yearOption.toString()}>
+                        {yearOption}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={setDate}
+                initialFocus
+                month={visibleMonth}
+                className="rounded-md border"
+                fromYear={1900}
+                toYear={new Date().getFullYear()}
+              />
+            </div>
           </PopoverContent>
         </Popover>
       </div>
