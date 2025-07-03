@@ -107,17 +107,18 @@ export const AccountSettings = ({
                   </SelectContent>
                 </Select>
               </div>
+<Calendar
+  mode="single"
+  selected={date}
+  onSelect={setDate}
+  onMonthChange={setVisibleMonth} // <-- Add this line
+  initialFocus
+  month={visibleMonth}
+  className="rounded-md border"
+  fromYear={1900}
+  toYear={new Date().getFullYear()}
+/>
 
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                initialFocus
-                month={visibleMonth}
-                className="rounded-md border"
-                fromYear={1900}
-                toYear={new Date().getFullYear()}
-              />
             </div>
           </PopoverContent>
         </Popover>
