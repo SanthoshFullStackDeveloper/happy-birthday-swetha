@@ -146,6 +146,7 @@ import {
   getDocs,
   onSnapshot
 } from "firebase/firestore";
+import { FieldValue } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCss15RCgowAwwUKzdNAhqfA_YikGu9cMs",
@@ -223,10 +224,21 @@ export const addTaskToFirestore = async (task: any) => {
   return docRef.id;
 };
 
-export const updateTaskInFirestore = async (task: any) => {
-  const taskCollection = task.isEvent ? 'events' : 'tasks';
-  const taskRef = doc(db, taskCollection, task.id);
-  await updateDoc(taskRef, task);
+export const updateTaskInFirestore = async (taskId: string, updates: Record<string, any>, isEvent: boolean) => {
+  const taskCollection = isEvent ? 'events' : 'tasks';
+  const taskRef = doc(db, taskCollection, taskId);
+
+  // Remove any undefined or null values if you want to completely remove fields
+  const cleanUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([_, value]) => value !== undefined && value !== null)
+  );
+
+  // Or if you want to keep null values but remove undefined:
+  // const cleanUpdates = Object.fromEntries(
+  //   Object.entries(updates).filter(([_, value]) => value !== undefined)
+  // );
+
+  await updateDoc(taskRef, cleanUpdates);
 };
 
 export const deleteTaskFromFirestore = async (taskId: string, isEvent: boolean) => {
